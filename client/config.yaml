@@ -1,0 +1,8 @@
+API_ENDPOINT: "http://localhost:3000"
+API_KEY: ""
+COOKIES_PATH: "~/.config/bigshit/cookies"
+STORAGE_BACKEND: "local"
+STORAGE_PATH: "~/Downloads/bigshit"
+PROXY_LIST: []
+WHISPER_MODEL: "small"  # tiny, small, medium, large
+DOWNLOAD_INTERVAL: 300  # seconds between checking for new items

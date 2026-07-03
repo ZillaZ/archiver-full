@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bigshit Client</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#c9d1d9;font-size:14px}
+nav{background:#161b22;padding:12px 24px;display:flex;gap:24px;border-bottom:1px solid #30363d}
+nav a{color:#8b949e;text-decoration:none;padding:4px 0;cursor:pointer}
+nav a:hover,nav a.active{color:#58a6ff;border-bottom:2px solid #58a6ff}
+.content{padding:24px;max-width:1200px;margin:0 auto}
+h1{font-size:20px;margin-bottom:16px}
+.page{display:none}.page.active{display:block}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #21262d}
+th{color:#8b949e;font-weight:600}
+input,select,textarea{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:8px 12px;border-radius:6px;font-size:14px;width:100%;margin-bottom:8px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#58a6ff}
+textarea{font-family:monospace;resize:vertical}
+button{background:#238636;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px}
+button:hover{background:#2ea043}
+button.danger{background:#da3633}
+button.danger:hover{background:#f85149}
+button.secondary{background:#21262d;color:#c9d1d9}
+button.secondary:hover{background:#30363d}
+label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px}
+.row{display:flex;gap:12px}.row>*{flex:1}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px}
+.badge.online{background:#1b4022;color:#3fb950}
+.badge.offline{background:#402c1b;color:#d29922}
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.status-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+.status-card .value{font-size:28px;font-weight:700;color:#58a6ff}
+.status-card .label{font-size:12px;color:#8b949e;margin-top:4px}
+.api-status{padding:8px;border-radius:6px;margin-bottom:12px;font-size:14px}
+.api-status.connected{background:#1b4022;border:1px solid #3fb950;color:#3fb950}
+.api-status.disconnected{background:#222;border:1px solid #d29922;color:#d29922}
+.video-player{background:#000;border-radius:8px;overflow:hidden;margin-bottom:16px}
+.video-player video{width:100%;max-height:480px;display:block}
+.heatmap-bar{position:relative;height:24px;background:#161b22;border-radius:4px;margin:8px 0 16px;overflow:hidden;cursor:pointer}
+.heatmap-segment{position:absolute;height:100%;top:0}
+.progress-bar{width:100%}
+.file-panel{display:flex;gap:16px;min-height:400px}
+.file-tree{width:300px;background:#161b22;border-radius:8px;padding:12px;overflow-y:auto;flex-shrink:0}
+.file-preview{flex:1;background:#161b22;border-radius:8px;padding:16px}
+.file-entry{padding:4px 8px;cursor:pointer;border-radius:4px}
+.file-entry:hover{background:#21262d}
+.file-entry.dir{color:#58a6ff}
+.file-entry.file{color:#c9d1d9}
+.search-result{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:8px}
+.search-result h3{color:#58a6ff}
+.mini-heatmap{height:6px;background:#21262d;border-radius:3px;margin:4px 0;overflow:hidden;display:flex}
+.mini-heatmap span{height:100%}
+</style>
+</head>
+<body>
+<nav id="nav">
+  <a class="active" onclick="showPage('dashboard')">Dashboard</a>
+  <a onclick="showPage('channels')">Channels</a>
+  <a onclick="showPage('files')">Files</a>
+  <a id="search-nav" onclick="showPage('search')" style="display:none">Search</a>
+  <a onclick="showPage('settings')">Settings</a>
+  <a onclick="showPage('api')">API Connection</a>
+</nav>
+<div class="content">
+
+<div id="page-dashboard" class="page active">
+  <h1>Dashboard</h1>
+  <div class="status-grid" id="status-grid"></div>
+</div>
+
+<div id="page-channels" class="page">
+  <h1>Watched Channels</h1>
+  <button onclick="showAddChannel()">+ Add Channel</button>
+  <div id="add-channel-form" style="display:none;margin-top:12px;background:#161b22;padding:16px;border-radius:8px">
+    <div class="row"><div><label>Platform</label><select id="channel-platform"><option>youtube</option><option>tiktok</option><option>instagram</option></select></div>
+    <div><label>Channel ID / Username</label><input id="channel-id" placeholder="UC... or @user"></div>
+    <div><label>Name</label><input id="channel-name" placeholder="Channel Name"></div></div>
+    <button onclick="addChannel()">Save</button><button class="secondary" onclick="hideAddChannel()">Cancel</button>
+  </div>
+  <table><thead><tr><th>Platform</th><th>ID</th><th>Name</th><th>Added</th><th>Last Scrape</th><th></th></tr></thead><tbody id="channels-list"></tbody></table>
+</div>
+
+<div id="page-files" class="page">
+  <h1>Files</h1>
+  <div class="file-panel">
+    <div class="file-tree" id="file-tree"></div>
+    <div class="file-preview" id="file-preview">
+      <p style="color:#8b949e">Select a file to preview</p>
+    </div>
+  </div>
+</div>
+
+<div id="page-search" class="page">
+  <h1>Search (API)</h1>
+  <div class="row"><input id="search-query" placeholder="Search videos and lives..." onkeydown="if(event.key==='Enter')doSearch()">
+  <select id="search-type" style="width:auto"><option value="all">All</option><option value="videos">Videos</option><option value="lives">Lives</option></select>
+  <button onclick="doSearch()">Search</button></div>
+  <div id="search-results"></div>
+</div>
+
+<div id="page-settings" class="page">
+  <h1>Settings</h1>
+  <div style="max-width:500px">
+    <div class="form-group"><label>API Endpoint</label><input id="s-api-endpoint"></div>
+    <div class="form-group"><label>Cookies Directory</label><input id="s-cookies-path"></div>
+    <div class="form-group"><label>Storage Backend</label><select id="s-storage-backend"><option>local</option><option>s3</option></select></div>
+    <div class="form-group"><label>Storage Path</label><input id="s-storage-path"></div>
+    <div class="form-group"><label>Proxy List (one per line)</label><textarea id="s-proxy-list" rows="3"></textarea></div>
+    <div class="form-group"><label>Whisper Model</label><select id="s-whisper-model"><option>tiny</option><option selected>small</option><option>medium</option><option>large</option></select></div>
+    <div class="form-group"><label>Download Interval (s)</label><input id="s-download-interval" type="number"></div>
+    <div class="form-group"><label>Web UI Port</label><input id="s-web-port" type="number"></div>
+    <button onclick="saveSettings()">Save</button>
+  </div>
+</div>
+
+<div id="page-api" class="page">
+  <h1>API Connection</h1>
+  <div id="api-status" class="api-status disconnected">Not connected</div>
+  <div style="max-width:400px">
+    <div class="form-group"><label>API Key</label><input id="api-key-input" type="password"></div>
+    <button onclick="connectAPI()">Connect</button>
+    <button class="danger" onclick="disconnectAPI()">Disconnect</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const STORAGE_PATH = '/api/files';
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a=>{if(a.textContent.toLowerCase()===name)a.classList.add('active')});
+  refreshPage(name);
+}
+function refreshPage(name){
+  if(name==='dashboard') refreshDashboard();
+  if(name==='channels') refreshChannels();
+  if(name==='files') refreshFiles();
+}
+
+function refreshDashboard(){
+  fetch('/api/status').then(r=>r.json()).then(d=>{
+    document.getElementById('status-grid').innerHTML=
+      '<div class="status-card"><div class="value">'+d.channels_count+'</div><div class="label">Watched Channels</div></div>'+
+      '<div class="status-card"><div class="value">'+d.downloads_count+'</div><div class="label">Recent Downloads</div></div>'+
+      '<div class="status-card"><div class="value"><span class="badge '+(d.api_connected?'online':'offline')+'">'+(d.api_connected?'Connected':'Disconnected')+'</span></div><div class="label">API Status</div></div>';
+    if(d.api_connected) document.getElementById('search-nav').style.display='inline';
+  });
+}
+
+function refreshChannels(){
+  fetch('/api/channels').then(r=>r.json()).then(c=>{
+    document.getElementById('channels-list').innerHTML=c.map(ch=>
+      '<tr><td>'+ch.platform+'</td><td>'+ch.platform_id+'</td><td>'+ch.name+'</td><td>'+(ch.added_at||'-')+'</td><td>'+(ch.last_scrape||'-')+'</td>'+
+      '<td><button class="danger" onclick="removeChannel(\''+ch.platform+'\',\''+ch.platform_id+'\')">Remove</button></td></tr>'
+    ).join('');
+  });
+}
+
+function showAddChannel(){document.getElementById('add-channel-form').style.display='block'}
+function hideAddChannel(){document.getElementById('add-channel-form').style.display='none'}
+function addChannel(){
+  const p=document.getElementById('channel-platform').value,id=document.getElementById('channel-id').value.trim(),n=document.getElementById('channel-name').value.trim()||id;
+  if(!id)return;
+  fetch('/api/channels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform:p,platform_id:id,name:n})})
+    .then(()=>{hideAddChannel();document.getElementById('channel-id').value='';document.getElementById('channel-name').value='';refreshChannels()});
+}
+function removeChannel(p,id){
+  if(!confirm('Remove '+p+'/'+id+'?'))return;
+  fetch('/api/channels/'+p+'/'+id,{method:'DELETE'}).then(()=>refreshChannels());
+}
+
+let filePath='';
+function refreshFiles(dir){
+  filePath=dir||filePath;
+  fetch('/api/files?path='+encodeURIComponent(filePath)).then(r=>r.json()).then(d=>{
+    let html='<div class="file-entry dir" onclick="refreshFiles(\'\')">/</div>';
+    if(filePath){
+      const up=filePath.split('/').slice(0,-1).join('/');
+      html+='<div class="file-entry dir" onclick="refreshFiles(\''+up+'\')">..</div>';
+    }
+    d.dirs.forEach(dir=>{html+='<div class="file-entry dir" onclick="refreshFiles(\''+dir.path+'\')">'+dir.name+'/</div>'});
+    d.files.forEach(f=>{html+='<div class="file-entry file" onclick="previewFile(\''+f.path+'\',\''+f.ext+'\')">'+f.name+'</div>'});
+    document.getElementById('file-tree').innerHTML=html;
+  });
+}
+function previewFile(path,ext){
+  const url='/api/files/download/'+encodeURIComponent(path);
+  const preview=document.getElementById('file-preview');
+  const videoExts=['.mp4','.webm','.mkv','.avi','.mov','.m3u8','.flv'];
+  if(videoExts.includes(ext)){
+    preview.innerHTML='<div class="video-player"><video id="player" controls></video></div><p>'+path+'</p>'+
+      '<div style="margin-top:8px"><button onclick="window.open(\''+url+'\')">Download</button>'+
+      '<button class="danger" onclick="deleteFile(\''+path+'\')">Delete</button></div>';
+    const video=document.getElementById('player');
+    if(ext==='.m3u8' && typeof HLS!=='undefined'){
+      if(HLS.isSupported()){const hls=new HLS();hls.loadSource(url);hls.attachMedia(video);hls.on(HLS.Events.MANIFEST_PARSED,()=>video.play())}
+    }else if(ext==='.flv' && typeof flvjs!=='undefined'){
+      if(flvjs.isSupported()){const f=flvjs.createPlayer({type:'flv',url:url});f.attachMedia(video);f.load();video.play()}
+    }else{video.src=url;video.play()}
+  }else if(ext==='.mp3'||ext==='.wav'||ext==='.ogg'||ext==='.m4a'){
+    preview.innerHTML='<audio controls style="width:100%"><source src="'+url+'"></audio><p>'+path+'</p>'+
+      '<div style="margin-top:8px"><button onclick="window.open(\''+url+'\')">Download</button>'+
+      '<button class="danger" onclick="deleteFile(\''+path+'\')">Delete</button></div>';
+  }else if(ext==='.jpg'||ext==='.jpeg'||ext==='.png'||ext==='.gif'||ext==='.webp'){
+    preview.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:500px;border-radius:8px"><p>'+path+'</p>';
+  }else{
+    preview.innerHTML='<p>'+path+'</p><div style="margin-top:8px"><button onclick="window.open(\''+url+'\')">Download</button>'+
+      '<button class="danger" onclick="deleteFile(\''+path+'\')">Delete</button></div>';
+  }
+}
+function deleteFile(path){
+  if(!confirm('Delete '+path+'?'))return;
+  fetch('/api/files/delete/'+encodeURIComponent(path),{method:'DELETE'}).then(()=>refreshFiles());
+}
+
+function doSearch(){
+  const q=document.getElementById('search-query').value.trim();
+  const type=document.getElementById('search-type').value;
+  if(!q)return;
+  fetch('/api/search?q='+encodeURIComponent(q)+'&type='+type).then(r=>r.json()).then(data=>{
+    if(data.error){document.getElementById('search-results').innerHTML='<p style="color:#f85149">'+data.error+'</p>';return}
+    const container=document.getElementById('search-results');
+    if(!data.hits||!data.hits.length){container.innerHTML='<p>No results</p>';return}
+    container.innerHTML='<p>'+data.total+' results</p>'+data.hits.map(h=>
+      '<div class="search-result"><h3>'+escHtml(h.title||'')+'</h3>'+
+      '<p>'+escHtml(h.uploader||'')+' · '+escHtml(h.platform||'')+' · '+formatDuration(h.duration||0)+'</p>'+
+      '<div class="mini-heatmap">'+renderMiniHeatmap(h)+'</div>'+
+      '<p style="color:#8b949e;font-size:12px">'+escHtml(h.upload_date||'')+'</p></div>'
+    ).join('');
+  }).catch(e=>{document.getElementById('search-results').innerHTML='<p style="color:#f85149">Error: '+e+'</p>'});
+}
+function renderMiniHeatmap(h){
+  if(!h.heatmap||!h.heatmap.segments)return '';
+  return h.heatmap.segments.map(s=>'<span style="flex:'+((s.end_time-s.start_time)*100).toFixed(0)+';background:rgba(88,166,255,'+s.value.toFixed(2)+')"></span>').join('');
+}
+function formatDuration(s){
+  if(!s)return '0:00';
+  const m=Math.floor(s/60),sec=Math.floor(s%60);
+  return m+':'+(sec<10?'0':'')+sec;
+}
+function escHtml(s){
+  const d=document.createElement('div');
+  d.textContent=s||'';
+  return d.innerHTML;
+}
+
+function connectAPI(){
+  const key=document.getElementById('api-key-input').value.trim();
+  if(!key)return;
+  fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})})
+    .then(r=>r.json()).then(d=>{
+      const s=document.getElementById('api-status');
+      if(d.status==='connected'){s.className='api-status connected';s.textContent='Connected';document.getElementById('search-nav').style.display='inline'}
+      else{s.className='api-status disconnected';s.textContent='Failed: '+(d.error||'unknown')}
+    });
+}
+function disconnectAPI(){
+  fetch('/api/disconnect',{method:'POST'}).then(()=>{
+    document.getElementById('api-status').className='api-status disconnected';
+    document.getElementById('api-status').textContent='Not connected';
+    document.getElementById('api-key-input').value='';
+    document.getElementById('search-nav').style.display='none';
+  });
+}
+
+function saveSettings(){
+  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    api_endpoint:document.getElementById('s-api-endpoint').value,
+    cookies_path:document.getElementById('s-cookies-path').value,
+    storage_backend:document.getElementById('s-storage-backend').value,
+    storage_path:document.getElementById('s-storage-path').value,
+    proxy_list:document.getElementById('s-proxy-list').value.split('\n').filter(l=>l.trim()),
+    whisper_model:document.getElementById('s-whisper-model').value,
+    download_interval:parseInt(document.getElementById('s-download-interval').value)||300,
+    web_port:parseInt(document.getElementById('s-web-port').value)||8080,
+  })}).then(()=>showPage('dashboard'));
+}
+
+function loadSettings(){
+  fetch('/api/config').then(r=>r.json()).then(c=>{
+    document.getElementById('s-api-endpoint').value=c.api_endpoint||'';
+    document.getElementById('s-cookies-path').value=c.cookies_path||'';
+    document.getElementById('s-storage-backend').value=c.storage_backend||'local';
+    document.getElementById('s-storage-path').value=c.storage_path||'';
+    document.getElementById('s-proxy-list').value=(c.proxy_list||[]).join('\n');
+    document.getElementById('s-whisper-model').value=c.whisper_model||'small';
+    document.getElementById('s-download-interval').value=c.download_interval||300;
+    document.getElementById('s-web-port').value=c.web_port||8080;
+    if(c.api_connected){document.getElementById('api-status').className='api-status connected';document.getElementById('api-status').textContent='Connected';document.getElementById('search-nav').style.display='inline'}
+  });
+}
+
+refreshDashboard();loadSettings();setInterval(()=>refreshDashboard(),5000);
+</script>
+</body>
+</html>

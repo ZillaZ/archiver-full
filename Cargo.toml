@@ -1,0 +1,3 @@
+[workspace]
+members = ["shared", "api", "scraper", "meili-init"]
+resolver = "2"

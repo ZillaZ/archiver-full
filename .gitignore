@@ -1,0 +1,14 @@
+target/
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.db
+.DS_Store
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+client/tests/.pytest_cache/
